@@ -25,6 +25,12 @@ class POROContract
     @meta = { checked: [] }
     match_guarantees!
     match_expectations!
+  rescue GuaranteesError, ExpectationsError
+    raise
+  rescue StandardError
+    # use logger here
+    puts "Unexpected error, meta: #{@meta.inspect}"
+    raise
   end
   alias :match! :call
 
