@@ -52,7 +52,7 @@ class TwitterContract < POROContract
     @statuses.empty?
   end
 
-  def expect_successful_search
+  def expect_non_empty_search
     users_without_screen_name =
       @statuses.select { |s| s.dig(:user, :screen_name).nil? }.tap do |statuses|
         @meta[:user_ids_without_screen_name] = statuses.map { |s| s.dig(:user, :id) }
@@ -83,5 +83,20 @@ def run_search
     response = twitter_search.call(search_query)
   end
 
-  puts JSON.pretty_generate(response)
+  users = {}
+  response.to_h[:statuses].each do |status|
+    users[status.dig(:user, :screen_name)] = status.dig(:user, :followers_count)
+  end
+
+  if users.empty?
+    puts "Nothing found in last week Tweets for: `#{search_query}`. Sorry!"
+    return
+  end
+
+  puts "Interest stats about `#{search_query}`:"
+  puts "Engagement (number of users affected) ~ #{users.values.sum} users"
+  puts "Per user stats: "
+  users.each { |username, followers| puts " - #{username} has #{followers} followers" }
+
+  nil
 end
