@@ -1,3 +1,6 @@
+require_relative 'sampler.rb'
+require_relative 'statistics.rb'
+
 # Base class for writting contracts.
 # the only public method is POROContract#call (or alias POROContract#match!)
 #
@@ -17,24 +20,54 @@
 #
 # Both of them raise with the @meta object, which contains extra debugging info.
 class POROContract
-  # @example
-  #
+  attr_reader :logger, :sampler, :stats
+  def initialize(logger: nil, period: nil)
+    contract_name = self.class.name
+    @sampler = Sampler.new(self, period)
+    @stats = Statistics.new(contract_name, logger)
+  end
+
+  def serialize
+    Marshal.dump(input: @input, output: @output, meta: @meta)
+  end
+
+  def deserialize(state_dump)
+    Marshal.load(state_dump)
+  end
+
   def call(*args, **kwargs)
+    @meta = { checked: [] }
+    return yield unless enabled?
     @input = { args: args, kwargs: kwargs }
     @output = yield
-    @meta = { checked: [] }
     match_guarantees!
     match_expectations!
-  rescue GuaranteesError, ExpectationsError
+  rescue GuaranteesError => error
+    stats.store_guarantee_failure(error, meta_with_sample(:guarantee_failure))
     raise
-  rescue StandardError
-    # use logger here
-    puts "Unexpected error, meta: #{@meta.inspect}"
+  rescue ExpectationsError => error
+    stats.store_expectation_failure(error, meta_with_sample(:expectation_failure))
+    raise
+  rescue StandardError => error
+    stats.store_unexpected_error(error, meta_with_sample(:unexpected_error))
     raise
   end
   alias :match! :call
 
   private
+
+  def meta_with_sample(rule)
+    @meta.merge!(input: @input)
+    if sampler.need_sample?(rule)
+      @meta.merge(sample_path: sampler.sample(rule))
+    else
+      @meta
+    end
+  end
+
+  def enabled?
+    !!ENV["CONTRACT_#{self.class.name}"]
+  end
 
   class GuaranteesError < StandardError; end
   def match_guarantees!
@@ -42,7 +75,7 @@ class POROContract
       .select { |method_name| method_name.to_s.start_with?("guarantee_")  }
       .all? do |method_name|
         @meta[:checked] << method_name
-        send(method_name)
+        !!send(method_name)
       end
     raise GuaranteesError, @meta
   end
@@ -53,7 +86,9 @@ class POROContract
       .select { |method_name| method_name.to_s.start_with?("expect_")  }
       .any? do |method_name|
         @meta[:checked] << method_name
-        send(method_name)
+        next unless !!send(method_name)
+        stats.store_match(method_name, meta_with_sample(method_name))
+        true
       end
     raise ExpectationsError, @meta
   end
