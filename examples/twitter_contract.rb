@@ -90,29 +90,18 @@ class TwitterContract < POROContract
   end
 end
 
-def search(search_query)
-  unless $credentials
-    puts "Enter Twitter access string (login, access_token, access_token_secret, consumer_key, consumer_secret) joined by `::`"
-    access_string = STDIN.noecho(&:gets).chomp
-    access_data = access_string.split("::")
-    keys = %i(login access_token access_token_secret consumer_key consumer_secret)
-    $credentials = Hash[keys.zip(access_data)]
-  end
-
-  twitter_search = TwitterSearch.new($credentials)
-
-  TwitterContract.new.match!(search_query) { twitter_search.call(search_query) }
-
-  twitter_search.print_stats
+def credentials
+  return $credentials if defined? $credentials
+  puts "Enter Twitter access string (login, access_token, access_token_secret, consumer_key, consumer_secret) joined by `::`"
+  access_string = STDIN.noecho(&:gets).chomp
+  access_data = access_string.split("::")
+  keys = %i(login access_token access_token_secret consumer_key consumer_secret)
+  $credentials = Hash[keys.zip(access_data)]
 end
+alias ask_credentials credentials
 
-while true
-  puts "Enter TwitterSearch query:"
-  search_query = gets.chomp
-
-
-  search(search_query) if search_query.to_s.size > 3
-  puts "\n\n"
-  puts "Press any key to continue (or `q` to exit)..."
-  exit(0) if gets.chomp.downcase == 'q'
+def search(search_query, credentials = ask_credentials)
+  twitter_search = TwitterSearch.new(credentials)
+  TwitterContract.new.match!(search_query) { twitter_search.call(search_query) }
+  twitter_search.print_stats
 end
