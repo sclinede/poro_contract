@@ -105,3 +105,14 @@ def search(search_query)
 
   twitter_search.print_stats
 end
+
+while true
+  puts "Enter TwitterSearch query:"
+  search_query = gets.chomp
+
+
+  search(search_query) if search_query.to_s.size > 3
+  puts "\n\n"
+  puts "Press any key to continue (or `q` to exit)..."
+  exit(0) if gets.chomp.downcase == 'q'
+end
