@@ -66,7 +66,7 @@ class POROContract
   end
 
   def enabled?
-    !!ENV["CONTRACT_#{self.class.name}"]
+    !!ENV["ENABLE_#{self.class.name}"]
   end
 
   class GuaranteesError < StandardError; end
