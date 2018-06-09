@@ -10,7 +10,31 @@ class TwitterSearch
   end
 
   def call(search_query)
-    client.search(search_query)
+    @search_query = search_query
+    @response = client.search(search_query)
+  end
+
+  def print_stats
+    return unless @response
+
+    users = {}
+    @response.to_h[:statuses].each do |status|
+      users[status.dig(:user, :screen_name)] = status.dig(:user, :followers_count)
+    end
+
+    if users.empty?
+      puts "Nothing found in last week Tweets for: `#{@search_query}`. Sorry!"
+      return
+    end
+
+    puts "Interest stats about `#{@search_query}`:"
+    puts "Engagement (number of users affected) ~ #{users.values.sum} users"
+    puts "Top user stats: "
+    users.sort_by { |_, v| -v }
+         .take(10)
+         .each { |username, followers| puts " - #{username} has #{followers} followers" }
+
+    nil
   end
 
   def client
@@ -66,37 +90,18 @@ class TwitterContract < POROContract
   end
 end
 
-def run_search
-  response = nil
-  puts "Enter Twitter access string (login, access_token, access_token_secret, consumer_key, consumer_secret) joined by `::`"
-  access_string = STDIN.noecho(&:gets).chomp
-  access_data = access_string.split("::")
-  keys = %i(login access_token access_token_secret consumer_key consumer_secret)
-  credentials = Hash[keys.zip(access_data)]
-
-  twitter_search = TwitterSearch.new(credentials)
-
-  puts "Enter TwitterSearch query:"
-  search_query = gets.chomp
-
-  TwitterContract.new.match!(search_query) do
-    response = twitter_search.call(search_query)
+def search(search_query)
+  unless $credentials
+    puts "Enter Twitter access string (login, access_token, access_token_secret, consumer_key, consumer_secret) joined by `::`"
+    access_string = STDIN.noecho(&:gets).chomp
+    access_data = access_string.split("::")
+    keys = %i(login access_token access_token_secret consumer_key consumer_secret)
+    $credentials = Hash[keys.zip(access_data)]
   end
 
-  users = {}
-  response.to_h[:statuses].each do |status|
-    users[status.dig(:user, :screen_name)] = status.dig(:user, :followers_count)
-  end
+  twitter_search = TwitterSearch.new($credentials)
 
-  if users.empty?
-    puts "Nothing found in last week Tweets for: `#{search_query}`. Sorry!"
-    return
-  end
+  TwitterContract.new.match!(search_query) { twitter_search.call(search_query) }
 
-  puts "Interest stats about `#{search_query}`:"
-  puts "Engagement (number of users affected) ~ #{users.values.sum} users"
-  puts "Per user stats: "
-  users.each { |username, followers| puts " - #{username} has #{followers} followers" }
-
-  nil
+  twitter_search.print_stats
 end
