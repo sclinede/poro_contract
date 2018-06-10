@@ -7,16 +7,17 @@ class TwitterSearch
   def initialize(credentials, timeouts = nil)
     @credentials = credentials
     @timeouts = timeouts || DEFAULT_TIMEOUTS
+    @contract = TwitterSearchContract.new
   end
 
   def call(search_query)
     @search_query = search_query
-    TwitterSearchContract.new.match!(search_query) do
+    @contract.match!(search_query) do
       @response = client.search(search_query)
     end
   end
 
-  def print_stats
+  def print
     return unless @response
 
     users = {}
@@ -117,5 +118,5 @@ alias ask_credentials credentials
 def search(search_query, credentials = ask_credentials)
   twitter_search = TwitterSearch.new(credentials)
   twitter_search.call(search_query)
-  twitter_search.print_stats
+  twitter_search.print
 end
