@@ -1,4 +1,6 @@
 # Plain Old Ruby Object Implementation of Contract
+### (see more Advanced version with Statistics tracking and Sampling, [in the branch `full-toolbox`](https://github.com/sclinede/poro_contract/tree/full-toolbox))
+
 This project contains the most simple implementation of Contract written in Ruby (and maybe later in other languages).
 
 The Contract is inspired by Design by Contracts approach and pushes Fail Fast techinque further.
